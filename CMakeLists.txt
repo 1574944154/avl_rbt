@@ -9,9 +9,12 @@
 #
 # SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 #
-project(ddsVideoTrans LANGUAGES C)
-cmake_minimum_required(VERSION 3.16)
 
+cmake_minimum_required(VERSION 3.16)
+project(avl_rbt LANGUAGES C)
+
+
+set(CMAKE_C_STANDARD 11)
 # set(ENV{KernelSoftDDS_DIR} /home/dev/code/cyclonedds/install)
 # set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};/home/dev/code/cyclonedds/install")
 
