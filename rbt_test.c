@@ -19,8 +19,8 @@ struct domain *my_search(struct rb_root *root, int key)
     {
         struct domain *data = container_of(node, struct domain, node);
 
-        if(data->key > key) node = node->rb_left;
-        else if(data->key < key) node = node->rb_right;
+        if(data->key > key) node = node->cs[0];
+        else if(data->key < key) node = node->cs[1];
         else return data;
         
     }
@@ -36,8 +36,8 @@ int my_insert(struct rb_root *root, struct domain *data)
         struct domain *this = container_of(*new, struct domain, node);
 
         parent = *new;
-        if(data->key < this->key) new = &((*new)->rb_left);
-        else if(data->key > this->key) new = &((*new)->rb_right);
+        if(data->key < this->key) new = &((*new)->cs[0]);
+        else if(data->key > this->key) new = &((*new)->cs[1]);
         else return false;
     }
 
@@ -52,9 +52,9 @@ void preorder(struct rb_node *node)
 
     struct domain *cnode = container_of(node, struct domain, node);
 
-    preorder(node->rb_left);
+    preorder(node->cs[0]);
     printf("%d ", cnode->key);
-    preorder(node->rb_right);
+    preorder(node->cs[1]);
 }
 
 int main(int argc, char *argv[])

@@ -27,9 +27,10 @@
 
 
 struct rb_node {
+	struct rb_node *cs[2];   // 0 is left, 1 is right
 	unsigned long  __rb_parent_color;
-	struct rb_node *rb_right;
-	struct rb_node *rb_left;
+	// struct rb_node *rb_right;
+	// struct rb_node *rb_left;
 };
 
 struct rb_root {
@@ -72,7 +73,7 @@ static inline void rb_link_node(struct rb_node *node, struct rb_node *parent,
 				struct rb_node **rb_link)
 {
 	node->__rb_parent_color = (unsigned long)parent;
-	node->rb_left = node->rb_right = NULL;
+	node->cs[0] = node->cs[1] = NULL;
 
 	*rb_link = node;
 }
@@ -142,9 +143,9 @@ rb_add(struct rb_node *node, struct rb_root *tree,
 	while (*link) {
 		parent = *link;
 		if (less(node, parent))
-			link = &parent->rb_left;
+			link = &parent->cs[0];
 		else
-			link = &parent->rb_right;
+			link = &parent->cs[1];
 	}
 
 	rb_link_node(node, parent, link);
@@ -173,9 +174,9 @@ rb_find_add(struct rb_node *node, struct rb_root *tree,
 		c = cmp(node, parent);
 
 		if (c < 0)
-			link = &parent->rb_left;
+			link = &parent->cs[0];
 		else if (c > 0)
-			link = &parent->rb_right;
+			link = &parent->cs[1];
 		else
 			return parent;
 	}
@@ -203,9 +204,9 @@ rb_find(const void *key, const struct rb_root *tree,
 		int c = cmp(key, node);
 
 		if (c < 0)
-			node = node->rb_left;
+			node = node->cs[0];
 		else if (c > 0)
-			node = node->rb_right;
+			node = node->cs[1];
 		else
 			return node;
 	}
@@ -234,9 +235,9 @@ rb_find_first(const void *key, const struct rb_root *tree,
 		if (c <= 0) {
 			if (!c)
 				match = node;
-			node = node->rb_left;
+			node = node->cs[0];
 		} else if (c > 0) {
-			node = node->rb_right;
+			node = node->cs[1];
 		}
 	}
 

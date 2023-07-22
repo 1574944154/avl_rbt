@@ -158,14 +158,11 @@ __rb_change_child(struct rb_node *old, struct rb_node *new,
 		  struct rb_node *parent, struct rb_root *root)
 {
 	if (parent) {
-		if (parent->rb_left == old)
-			// WRITE_ONCE(parent->rb_left, new);
-			parent->rb_left = new;
+		if (parent->cs[0] == old)
+			parent->cs[0] = new;
 		else
-			// WRITE_ONCE(parent->rb_right, new);
-			parent->rb_right = new;
+			parent->cs[1] = new;
 	} else
-		// WRITE_ONCE(root->rb_node, new);
 		root->rb_node = new;
 }
 
@@ -177,8 +174,8 @@ static __always_inline struct rb_node *
 __rb_erase_augmented(struct rb_node *node, struct rb_root *root,
 		     const struct rb_augment_callbacks *augment)
 {
-	struct rb_node *child = node->rb_right;
-	struct rb_node *tmp = node->rb_left;
+	struct rb_node *child = node->cs[1];
+	struct rb_node *tmp = node->cs[0];
 	struct rb_node *parent, *rebalance;
 	unsigned long pc;
 
@@ -200,7 +197,7 @@ __rb_erase_augmented(struct rb_node *node, struct rb_root *root,
 			rebalance = __rb_is_black(pc) ? parent : NULL;
 		tmp = parent;
 	} else if (!child) {
-		/* Still case 1, but this time the child is node->rb_left */
+		/* Still case 1, but this time the child is node->cs[0] */
 		tmp->__rb_parent_color = pc = node->__rb_parent_color;
 		parent = __rb_parent(pc);
 		__rb_change_child(node, tmp, parent, root);
@@ -209,7 +206,7 @@ __rb_erase_augmented(struct rb_node *node, struct rb_root *root,
 	} else {
 		struct rb_node *successor = child, *child2;
 
-		tmp = child->rb_left;
+		tmp = child->cs[0];
 		if (!tmp) {
 			/*
 			 * Case 2: node's successor is its right child
@@ -221,7 +218,7 @@ __rb_erase_augmented(struct rb_node *node, struct rb_root *root,
 			 *        (c)
 			 */
 			parent = successor;
-			child2 = successor->rb_right;
+			child2 = successor->cs[1];
 
 			augment->copy(node, successor);
 		} else {
@@ -242,22 +239,19 @@ __rb_erase_augmented(struct rb_node *node, struct rb_root *root,
 			do {
 				parent = successor;
 				successor = tmp;
-				tmp = tmp->rb_left;
+				tmp = tmp->cs[0];
 			} while (tmp);
-			child2 = successor->rb_right;
-			// WRITE_ONCE(parent->rb_left, child2);
-			parent->rb_left = child2;
-			// WRITE_ONCE(successor->rb_right, child);
-			successor->rb_right = child;
+			child2 = successor->cs[1];
+			parent->cs[0] = child2;
+			successor->cs[1] = child;
 			rb_set_parent(child, successor);
 
 			augment->copy(node, successor);
 			augment->propagate(parent, successor);
 		}
 
-		tmp = node->rb_left;
-		// WRITE_ONCE(successor->rb_left, tmp);
-		successor->rb_left = tmp;
+		tmp = node->cs[0];
+		successor->cs[0] = tmp;
 		rb_set_parent(tmp, successor);
 
 		pc = node->__rb_parent_color;

@@ -115,8 +115,8 @@ __rb_insert(struct rb_node *node, struct rb_root *root,
 
 		gparent = rb_red_parent(parent);
 
-		tmp = gparent->rb_right;
-		if (parent != tmp) {	/* parent == gparent->rb_left */
+		tmp = gparent->cs[1];
+		if (parent != tmp) {	/* parent == gparent->cs[0] */
 			if (tmp && rb_is_red(tmp)) {
 				/*
 				 * Case 1 - node's uncle is red (color flips).
@@ -139,7 +139,7 @@ __rb_insert(struct rb_node *node, struct rb_root *root,
 				continue;
 			}
 
-			tmp = parent->rb_right;
+			tmp = parent->cs[1];
 			if (node == tmp) {
 				/*
 				 * Case 2 - node's uncle is black and node is
@@ -154,18 +154,16 @@ __rb_insert(struct rb_node *node, struct rb_root *root,
 				 * This still leaves us in violation of 4), the
 				 * continuation into Case 3 will fix that.
 				 */
-				tmp = node->rb_left;
-				// WRITE_ONCE(parent->rb_right, tmp);
-				parent->rb_right = tmp;
-				// WRITE_ONCE(node->rb_left, parent);
-				node->rb_left = parent;
+				tmp = node->cs[0];
+				parent->cs[1] = tmp;
+				node->cs[0] = parent;
 				if (tmp)
 					rb_set_parent_color(tmp, parent,
 							    RB_BLACK);
 				rb_set_parent_color(parent, node, RB_RED);
 				augment_rotate(parent, node);
 				parent = node;
-				tmp = node->rb_right;
+				tmp = node->cs[1];
 			}
 
 			/*
@@ -178,17 +176,15 @@ __rb_insert(struct rb_node *node, struct rb_root *root,
 			 *     /                 \
 			 *    n                   U
 			 */
-			// WRITE_ONCE(gparent->rb_left, tmp); /* == parent->rb_right */
-			gparent->rb_left = tmp;
-			// WRITE_ONCE(parent->rb_right, gparent);
-			parent->rb_right = gparent;
+			gparent->cs[0] = tmp;
+			parent->cs[1] = gparent;
 			if (tmp)
 				rb_set_parent_color(tmp, gparent, RB_BLACK);
 			__rb_rotate_set_parents(gparent, parent, root, RB_RED);
 			augment_rotate(gparent, parent);
 			break;
 		} else {
-			tmp = gparent->rb_left;
+			tmp = gparent->cs[0];
 			if (tmp && rb_is_red(tmp)) {
 				/* Case 1 - color flips */
 				rb_set_parent_color(tmp, gparent, RB_BLACK);
@@ -199,28 +195,24 @@ __rb_insert(struct rb_node *node, struct rb_root *root,
 				continue;
 			}
 
-			tmp = parent->rb_left;
+			tmp = parent->cs[0];
 			if (node == tmp) {
 				/* Case 2 - right rotate at parent */
-				tmp = node->rb_right;
-				// WRITE_ONCE(parent->rb_left, tmp);
-				parent->rb_left = tmp;
-				// WRITE_ONCE(node->rb_right, parent);
-				node->rb_right = parent;
+				tmp = node->cs[1];
+				parent->cs[0] = tmp;
+				node->cs[1] = parent;
 				if (tmp)
 					rb_set_parent_color(tmp, parent,
 							    RB_BLACK);
 				rb_set_parent_color(parent, node, RB_RED);
 				augment_rotate(parent, node);
 				parent = node;
-				tmp = node->rb_left;
+				tmp = node->cs[0];
 			}
 
 			/* Case 3 - left rotate at gparent */
-			// WRITE_ONCE(gparent->rb_right, tmp); /* == parent->rb_left */
-			gparent->rb_right = tmp;
-			// WRITE_ONCE(parent->rb_left, gparent);
-			parent->rb_left = gparent;
+			gparent->cs[1] = tmp;
+			parent->cs[0] = gparent;
 			if (tmp)
 				rb_set_parent_color(tmp, gparent, RB_BLACK);
 			__rb_rotate_set_parents(gparent, parent, root, RB_RED);
@@ -248,8 +240,8 @@ ____rb_erase_color(struct rb_node *parent, struct rb_root *root,
 		 * - All leaf paths going through parent and node have a
 		 *   black node count that is 1 lower than other leaf paths.
 		 */
-		sibling = parent->rb_right;
-		if (node != sibling) {	/* node == parent->rb_left */
+		sibling = parent->cs[1];
+		if (node != sibling) {	/* node == parent->cs[0] */
 			if (rb_is_red(sibling)) {
 				/*
 				 * Case 1 - left rotate at parent
@@ -260,20 +252,18 @@ ____rb_erase_color(struct rb_node *parent, struct rb_root *root,
 				 *      / \         / \
 				 *     Sl  Sr      N   Sl
 				 */
-				tmp1 = sibling->rb_left;
-				// WRITE_ONCE(parent->rb_right, tmp1);
-				parent->rb_right = tmp1;
-				// WRITE_ONCE(sibling->rb_left, parent);
-				sibling->rb_left = parent;
+				tmp1 = sibling->cs[0];
+				parent->cs[1] = tmp1;
+				sibling->cs[0] = parent;
 				rb_set_parent_color(tmp1, parent, RB_BLACK);
 				__rb_rotate_set_parents(parent, sibling, root,
 							RB_RED);
 				augment_rotate(parent, sibling);
 				sibling = tmp1;
 			}
-			tmp1 = sibling->rb_right;
+			tmp1 = sibling->cs[1];
 			if (!tmp1 || rb_is_black(tmp1)) {
-				tmp2 = sibling->rb_left;
+				tmp2 = sibling->cs[0];
 				if (!tmp2 || rb_is_black(tmp2)) {
 					/*
 					 * Case 2 - sibling color flip
@@ -329,13 +319,10 @@ ____rb_erase_color(struct rb_node *parent, struct rb_root *root,
 				 *         \
 				 *          Sr
 				 */
-				tmp1 = tmp2->rb_right;
-				// WRITE_ONCE(sibling->rb_left, tmp1);
-				sibling->rb_left = tmp1;
-				// WRITE_ONCE(tmp2->rb_right, sibling);
-				tmp2->rb_right = sibling;
-				// WRITE_ONCE(parent->rb_right, tmp2);
-				parent->rb_right = tmp2;
+				tmp1 = tmp2->cs[1];
+				sibling->cs[0] = tmp1;
+				tmp2->cs[1] = sibling;
+				parent->cs[1] = tmp2;
 				if (tmp1)
 					rb_set_parent_color(tmp1, sibling,
 							    RB_BLACK);
@@ -355,11 +342,9 @@ ____rb_erase_color(struct rb_node *parent, struct rb_root *root,
 			 *        / \         / \
 			 *      (sl) sr      N  (sl)
 			 */
-			tmp2 = sibling->rb_left;
-			// WRITE_ONCE(parent->rb_right, tmp2);
-			parent->rb_right = tmp2;
-			// WRITE_ONCE(sibling->rb_left, parent);
-			sibling->rb_left = parent;
+			tmp2 = sibling->cs[0];
+			parent->cs[1] = tmp2;
+			sibling->cs[0] = parent;
 			rb_set_parent_color(tmp1, sibling, RB_BLACK);
 			if (tmp2)
 				rb_set_parent(tmp2, parent);
@@ -368,23 +353,21 @@ ____rb_erase_color(struct rb_node *parent, struct rb_root *root,
 			augment_rotate(parent, sibling);
 			break;
 		} else {
-			sibling = parent->rb_left;
+			sibling = parent->cs[0];
 			if (rb_is_red(sibling)) {
 				/* Case 1 - right rotate at parent */
-				tmp1 = sibling->rb_right;
-				// WRITE_ONCE(parent->rb_left, tmp1);
-				parent->rb_left = tmp1;
-				// WRITE_ONCE(sibling->rb_right, parent);
-				sibling->rb_right = parent;
+				tmp1 = sibling->cs[1];
+				parent->cs[0] = tmp1;
+				sibling->cs[1] = parent;
 				rb_set_parent_color(tmp1, parent, RB_BLACK);
 				__rb_rotate_set_parents(parent, sibling, root,
 							RB_RED);
 				augment_rotate(parent, sibling);
 				sibling = tmp1;
 			}
-			tmp1 = sibling->rb_left;
+			tmp1 = sibling->cs[0];
 			if (!tmp1 || rb_is_black(tmp1)) {
-				tmp2 = sibling->rb_right;
+				tmp2 = sibling->cs[1];
 				if (!tmp2 || rb_is_black(tmp2)) {
 					/* Case 2 - sibling color flip */
 					rb_set_parent_color(sibling, parent,
@@ -400,13 +383,10 @@ ____rb_erase_color(struct rb_node *parent, struct rb_root *root,
 					break;
 				}
 				/* Case 3 - left rotate at sibling */
-				tmp1 = tmp2->rb_left;
-				// WRITE_ONCE(sibling->rb_right, tmp1);
-				sibling->rb_right = tmp1;
-				// WRITE_ONCE(tmp2->rb_left, sibling);
-				tmp2->rb_left = sibling;
-				// WRITE_ONCE(parent->rb_left, tmp2);
-				parent->rb_left = tmp2;
+				tmp1 = tmp2->cs[0];
+				sibling->cs[1] = tmp1;
+				tmp2->cs[0] = sibling;
+				parent->cs[0] = tmp2;
 				if (tmp1)
 					rb_set_parent_color(tmp1, sibling,
 							    RB_BLACK);
@@ -415,11 +395,9 @@ ____rb_erase_color(struct rb_node *parent, struct rb_root *root,
 				sibling = tmp2;
 			}
 			/* Case 4 - right rotate at parent + color flips */
-			tmp2 = sibling->rb_right;
-			// WRITE_ONCE(parent->rb_left, tmp2);
-			parent->rb_left = tmp2;
-			// WRITE_ONCE(sibling->rb_right, parent);
-			sibling->rb_right = parent;
+			tmp2 = sibling->cs[1];
+			parent->cs[0] = tmp2;
+			sibling->cs[1] = parent;
 			rb_set_parent_color(tmp1, sibling, RB_BLACK);
 			if (tmp2)
 				rb_set_parent(tmp2, parent);
@@ -491,8 +469,8 @@ struct rb_node *rb_first(const struct rb_root *root)
 	n = root->rb_node;
 	if (!n)
 		return NULL;
-	while (n->rb_left)
-		n = n->rb_left;
+	while (n->cs[0])
+		n = n->cs[0];
 	return n;
 }
 
@@ -503,8 +481,8 @@ struct rb_node *rb_last(const struct rb_root *root)
 	n = root->rb_node;
 	if (!n)
 		return NULL;
-	while (n->rb_right)
-		n = n->rb_right;
+	while (n->cs[1])
+		n = n->cs[1];
 	return n;
 }
 
@@ -519,10 +497,10 @@ struct rb_node *rb_next(const struct rb_node *node)
 	 * If we have a right-hand child, go down and then left as far
 	 * as we can.
 	 */
-	if (node->rb_right) {
-		node = node->rb_right;
-		while (node->rb_left)
-			node = node->rb_left;
+	if (node->cs[1]) {
+		node = node->cs[1];
+		while (node->cs[0])
+			node = node->cs[0];
 		return (struct rb_node *)node;
 	}
 
@@ -533,7 +511,7 @@ struct rb_node *rb_next(const struct rb_node *node)
 	 * parent, keep going up. First time it's a left-hand child of its
 	 * parent, said parent is our 'next' node.
 	 */
-	while ((parent = rb_parent(node)) && node == parent->rb_right)
+	while ((parent = rb_parent(node)) && node == parent->cs[1])
 		node = parent;
 
 	return parent;
@@ -550,10 +528,10 @@ struct rb_node *rb_prev(const struct rb_node *node)
 	 * If we have a left-hand child, go down and then right as far
 	 * as we can.
 	 */
-	if (node->rb_left) {
-		node = node->rb_left;
-		while (node->rb_right)
-			node = node->rb_right;
+	if (node->cs[0]) {
+		node = node->cs[0];
+		while (node->cs[1])
+			node = node->cs[1];
 		return (struct rb_node *)node;
 	}
 
@@ -561,7 +539,7 @@ struct rb_node *rb_prev(const struct rb_node *node)
 	 * No left-hand children. Go up till we find an ancestor which
 	 * is a right-hand child of its parent.
 	 */
-	while ((parent = rb_parent(node)) && node == parent->rb_left)
+	while ((parent = rb_parent(node)) && node == parent->cs[0])
 		node = parent;
 
 	return parent;
@@ -576,20 +554,20 @@ void rb_replace_node(struct rb_node *victim, struct rb_node *new,
 	*new = *victim;
 
 	/* Set the surrounding nodes to point to the replacement */
-	if (victim->rb_left)
-		rb_set_parent(victim->rb_left, new);
-	if (victim->rb_right)
-		rb_set_parent(victim->rb_right, new);
+	if (victim->cs[0])
+		rb_set_parent(victim->cs[0], new);
+	if (victim->cs[1])
+		rb_set_parent(victim->cs[1], new);
 	__rb_change_child(victim, new, parent, root);
 }
 
 static struct rb_node *rb_left_deepest_node(const struct rb_node *node)
 {
 	for (;;) {
-		if (node->rb_left)
-			node = node->rb_left;
-		else if (node->rb_right)
-			node = node->rb_right;
+		if (node->cs[0])
+			node = node->cs[0];
+		else if (node->cs[1])
+			node = node->cs[1];
 		else
 			return (struct rb_node *)node;
 	}
@@ -603,10 +581,10 @@ struct rb_node *rb_next_postorder(const struct rb_node *node)
 	parent = rb_parent(node);
 
 	/* If we're sitting on node, we've already seen our children */
-	if (parent && node == parent->rb_left && parent->rb_right) {
+	if (parent && node == parent->cs[0] && parent->cs[1]) {
 		/* If we are the parent's left node, go to the parent's right
 		 * node then all the way down to the left */
-		return rb_left_deepest_node(parent->rb_right);
+		return rb_left_deepest_node(parent->cs[1]);
 	} else
 		/* Otherwise we are the parent's right node, and the parent
 		 * should be next */
