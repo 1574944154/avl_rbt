@@ -50,6 +50,7 @@ include_directories(${PROJECT_SOURCE_DIR})
 # add_executable(videoSub subscriber.c)
 add_executable(avl_test avl_test.c avl.c)
 add_executable(rbt_test rbt_test.c rbtree.c)
+add_executable(rbtavl_test rbtavl_test.c rbtreeavl.c)
 
 # Both executables need to be linked to the idl data type library and
 # the ddsc API library.
