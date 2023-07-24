@@ -31,36 +31,7 @@ void walk_func (void *node, void *arg)
     printf("access key is %d \n", d->key);
 }
 
-void pretraverse(ddsrt_avl_treedef_t *td, ddsrt_avl_node_t *node, ddsrt_avl_walk_t f)
-{
-    if(!node) return;
 
-    void *onode = onode_from_node_nonnull(td, node);
-
-    f(node, NULL);
-    pretraverse(td, node->cs[0], f);
-    pretraverse(td, node->cs[1], f);
-}
-
-void intraverse(ddsrt_avl_treedef_t *td, ddsrt_avl_node_t *node, ddsrt_avl_walk_t f)
-{
-    if(!node) return;
-
-    void *onode = onode_from_node_nonnull(td, node);
-    intraverse(td, node->cs[0], f);
-    f(node, NULL);
-    intraverse(td, node->cs[1], f);
-}
-
-void posttraverse(ddsrt_avl_treedef_t *td, ddsrt_avl_node_t *node, ddsrt_avl_walk_t f)
-{
-    if(!node) return;
-
-    void *onode = onode_from_node_nonnull(td, node);
-    posttraverse(td, node->cs[0], f);
-    posttraverse(td, node->cs[1], f);
-    f(node, NULL);
-}
 
 int main(int argc, char *argv[])
 {
