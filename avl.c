@@ -416,6 +416,7 @@ void ddsrt_avl_insert_ipath (const ddsrt_avl_treedef_t *td, ddsrt_avl_tree_t *tr
     *path->p.pnode[path->p.depth] = node;
     path->p.depth--;
     rebalance_path (td, &path->p, node->parent);
+    // rebalance_nopath(td, tree, node->parent);
 }
 
 void ddsrt_avl_insert (const ddsrt_avl_treedef_t *td, ddsrt_avl_tree_t *tree, void *vnode)

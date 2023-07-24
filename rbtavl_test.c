@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <dds/dds.h>
-#include "rbtreeavl.h"
 
+#include "rbtreeavl.h"
 
 struct domain {
     ddsrt_rbt_node_t node;
@@ -40,6 +40,7 @@ int height(ddsrt_rbt_node_t *node)
 
 ddsrt_rbt_treedef_t treedef = DDSRT_RBT_TREEDEF_INITIALIZER(offsetof(struct domain, node), offsetof(struct domain, key), compare_int, 0);
 
+char filename[] = "nums.txt";
 void *samples[MAX_SAMPLES];
 
 int main(int argc, char *argv[])
@@ -47,17 +48,23 @@ int main(int argc, char *argv[])
     ddsrt_rbt_tree_t tree_root;
     ddsrt_rbt_init(&treedef, &tree_root);
 
+    FILE *f = fopen(filename, "r");
+    int num;
+
     for(int i=0;i<MAX_SAMPLES;i++) 
     {
         samples[i] = malloc(sizeof(struct domain));
-        ((struct domain *)samples[i])->key = i;
+        fscanf(f, "%d ", &num);
+        ((struct domain *)samples[i])->key = num;
     }
+    fclose(f);
 
     dds_time_t starttime, endtime;
     starttime = dds_time();
 
     for(int i=0;i<MAX_SAMPLES;i++)
     {
+        // printf("%d ", ((struct domain*)samples[i])->key);
         ddsrt_rbt_insert(&treedef, &tree_root, samples[i]);
         // printf("insert key %d, addr %lu\n", i, (unsigned long)d_ptr);
     }

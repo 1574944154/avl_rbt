@@ -2,6 +2,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <dds/dds.h>
+
 #include "rbtree.h"
 
 
@@ -10,6 +12,8 @@ struct domain
     struct rb_node node;
     int key;
 };
+
+#define MAX_SAMPLES 10000000
 
 int max(int a, int b)
 {
@@ -68,23 +72,39 @@ int height(struct rb_node *node)
     return max(height(node->cs[0]), height(node->cs[1])) + 1;
 }
 
+char filename[] = "nums.txt";
+void *samples[MAX_SAMPLES];
+
 int main(int argc, char *argv[])
 {
     struct rb_root tree_root = RB_ROOT;
 
-    struct domain *d_ptr = NULL;
-
     printf("sizeof domain is %ld\n", sizeof(struct domain));
 
-    for(int i=0;i<=300000;i++)
-    {
-        d_ptr = malloc(sizeof(struct domain));
-        d_ptr->key = i;
+    FILE *f = fopen(filename, "r");
+    int num;
 
-        my_insert(&tree_root, d_ptr);
+    for(int i=0;i<MAX_SAMPLES;i++)
+    {
+        samples[i] = malloc(sizeof(struct domain));
+        fscanf(f, "%d ", &num);
+        ((struct domain *)samples[i])->key = num;
+    }
+    fclose(f);
+
+    dds_time_t starttime, endtime;
+    starttime = dds_time();
+
+    for(int i=0;i<MAX_SAMPLES;i++)
+    {
+        my_insert(&tree_root, samples[i]);
     }
 
-    printf("rbtree's height is %d\n", height(tree_root.rb_node));
+    endtime = dds_time();
+
+    printf("time is %ld\n", (endtime-starttime)/DDS_NSECS_IN_MSEC);
+
+    // printf("rbtree's height is %d\n", height(tree_root.rb_node));
     // rb_erase(samples[0], &tree_root);
 
     return 0;

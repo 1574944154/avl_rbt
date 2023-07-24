@@ -573,7 +573,7 @@ void *ddsrt_rbt_iter_succ(const ddsrt_rbt_treedef_t *td, const ddsrt_rbt_tree_t 
     }
 }
 
-static void rb_link_node(ddsrt_rbt_node_t *node, ddsrt_rbt_node_t *parent, 
+static inline void rb_link_node(ddsrt_rbt_node_t *node, ddsrt_rbt_node_t *parent, 
                             ddsrt_rbt_node_t **rb_link)
 {
     node->__rb_parent_color = (unsigned long) parent;
@@ -632,8 +632,6 @@ static void rb_insert_color(ddsrt_rbt_node_t *node, ddsrt_rbt_tree_t *tree)
                 node = gparent;
                 parent = rb_parent(node);
                 rb_set_parent_color(node, parent, RB_RED);
-                
-                // __rb_change_color(tmp, parent, gparent);
                 continue;
             }
 
@@ -666,7 +664,6 @@ static void rb_insert_color(ddsrt_rbt_node_t *node, ddsrt_rbt_tree_t *tree)
                 parent = rb_parent(node);
                 rb_set_parent_color(node, parent, RB_RED);
                 
-                // __rb_change_color(tmp, parent, gparent);
                 continue;
             }
 
@@ -690,7 +687,6 @@ static void rb_insert_color(ddsrt_rbt_node_t *node, ddsrt_rbt_tree_t *tree)
             break;
         }
     }
-
 }
 
 static inline void rebalance_path(ddsrt_rbt_tree_t *tree, ddsrt_rbt_node_t *node)

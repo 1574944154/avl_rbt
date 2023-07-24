@@ -44,6 +44,7 @@ int height(ddsrt_avl_node_t *node)
     return max(height(node->cs[0]), height(node->cs[1])) + 1;
 }
 
+char filename[] = "nums.txt";
 void *samples[MAX_SAMPLES];
 
 int main(int argc, char *argv[])
@@ -51,17 +52,20 @@ int main(int argc, char *argv[])
     ddsrt_avl_ctree_t tree_root;
     ddsrt_avl_cinit(&domaintree_def, &tree_root);
 
-    struct domain *d_ptr;
 
     printf("sizeof domain is %ld\n", sizeof(struct domain));
+
+    FILE *f = fopen(filename, "r");
+    int num;
 
     for(int i=0;i<MAX_SAMPLES;i++)
     {
         samples[i] = malloc(sizeof(struct domain));
-        ((struct domain *)samples[i])->key = i;
+        fscanf(f, "%d ", &num);
+        ((struct domain *)samples[i])->key = num;
         
-        // printf("insert key %d, addr %lu\n", i, (unsigned long)d_ptr);
     }
+    fclose(f);
 
     dds_time_t starttime, endtime;
     starttime = dds_time();
