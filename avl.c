@@ -13,6 +13,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "attributes.h"
 #include "avl.h"

@@ -1,6 +1,8 @@
 
 #include "rbtreeavl.h"
 
+#include <stdio.h>
+
 
 #define LOAD_DIRKEY(rbtnode, tree)              (((char *) (rbtnode)) - (tree)->rbtnodeoffset + (tree)->keyoffset)
 #define LOAD_INDKEY(rbtnode, tree) (*((char **) (((char *) (rbtnode)) - (tree)->rbtnodeoffset + (tree)->keyoffset)))
@@ -92,6 +94,7 @@ const char *conode_from_node_nonnull (const ddsrt_rbt_treedef_t *td, const ddsrt
 void ddsrt_rbt_init(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_tree_t *tree)
 {
     tree->root = NULL;
+    tree->count = 0;
     (void) td;
 }
 
@@ -257,15 +260,17 @@ static const ddsrt_rbt_node_t *lookup_path(const ddsrt_rbt_treedef_t *td, const 
     const ddsrt_rbt_node_t *cursor = tree->root;
     const ddsrt_rbt_node_t *prev = NULL;
     int c;
-    path->depth = 0;
-    path->pnode[0] = (ddsrt_rbt_node_t **) &tree->root;
+    // path->depth = 0;
+    // path->pnode[0] = (ddsrt_rbt_node_t **) &tree->root;
+    path->pnode = (ddsrt_rbt_node_t **) &tree->root;
     while(cursor && (c = comparenk(td, cursor, key)) != 0) {
         const int dir = (c <= 0);
         prev = cursor;
-        path->pnode[++path->depth] = (ddsrt_rbt_node_t **) &cursor->cs[dir];
+        // path->pnode[++path->depth] = (ddsrt_rbt_node_t **) &cursor->cs[dir];
+        path->pnode = (ddsrt_rbt_node_t **) &cursor->cs[dir];
         cursor = cursor->cs[dir];
     }
-    path->pnodeidx = path->depth;
+    // path->pnode = (ddsrt_rbt_node_t **)&cursor;
     path->parent = (ddsrt_rbt_node_t *) prev;
     return cursor;
 }
@@ -286,7 +291,7 @@ void *ddsrt_rbt_lookup_ipath(const ddsrt_rbt_treedef_t *td, const ddsrt_rbt_tree
     const ddsrt_rbt_node_t *node = lookup_path(td, tree, key, path);
     if(node) {
         if(!(td->flags & DDSRT_RBT_TREEDEF_FLAG_ALLOWDUPS)) {
-            path->pnode[path->depth] = NULL;
+            path->pnode = NULL;
         } else {
             const ddsrt_rbt_node_t *cursor = node;
             const ddsrt_rbt_node_t *prev;
@@ -295,9 +300,10 @@ void *ddsrt_rbt_lookup_ipath(const ddsrt_rbt_treedef_t *td, const ddsrt_rbt_tree
                 c = comparenk(td, cursor, key);
                 dir = (c <= 0);
                 prev = cursor;
-                path->pnode[++path->depth] = (ddsrt_rbt_node_t **) &cursor->cs[dir];
+                // path->pnode[++path->depth] = (ddsrt_rbt_node_t **) &cursor->cs[dir];
                 cursor = cursor->cs[dir];
             } while(cursor);
+            path->pnode = (ddsrt_rbt_node_t **)&cursor;
             path->parent = (ddsrt_rbt_node_t *) prev;
         }
     }
@@ -597,11 +603,18 @@ static inline void __rb_rotate_set_parents(ddsrt_rbt_node_t *old_node, ddsrt_rbt
     __rb_change_child(old_node, new_node, parent, tree);
 }
 
+static inline void __rb_change_color(ddsrt_rbt_node_t *tmp, ddsrt_rbt_node_t *node,
+                                             ddsrt_rbt_node_t *parent, ddsrt_rbt_node_t *gparent)
+{
+
+}
+
 static void rb_insert_color(ddsrt_rbt_node_t *node, ddsrt_rbt_tree_t *tree)
 {
     ddsrt_rbt_node_t *parent = rb_red_parent(node), *gparent, *tmp;
 
     for(;;) {
+
         if(parent == NULL) {
             rb_set_parent_color(node, NULL, RB_BLACK);
             break;
@@ -619,6 +632,8 @@ static void rb_insert_color(ddsrt_rbt_node_t *node, ddsrt_rbt_tree_t *tree)
                 node = gparent;
                 parent = rb_parent(node);
                 rb_set_parent_color(node, parent, RB_RED);
+                
+                // __rb_change_color(tmp, parent, gparent);
                 continue;
             }
 
@@ -650,6 +665,8 @@ static void rb_insert_color(ddsrt_rbt_node_t *node, ddsrt_rbt_tree_t *tree)
                 node = gparent;
                 parent = rb_parent(node);
                 rb_set_parent_color(node, parent, RB_RED);
+                
+                // __rb_change_color(tmp, parent, gparent);
                 continue;
             }
 
@@ -673,9 +690,10 @@ static void rb_insert_color(ddsrt_rbt_node_t *node, ddsrt_rbt_tree_t *tree)
             break;
         }
     }
+
 }
 
-static void rebalance_path(ddsrt_rbt_tree_t *tree, ddsrt_rbt_node_t *node)
+static inline void rebalance_path(ddsrt_rbt_tree_t *tree, ddsrt_rbt_node_t *node)
 {
     rb_insert_color(node, tree);
 }
@@ -683,11 +701,11 @@ static void rebalance_path(ddsrt_rbt_tree_t *tree, ddsrt_rbt_node_t *node)
 void ddsrt_rbt_insert_ipath(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_tree_t *tree, void *vnode, ddsrt_rbt_ipath_t *path)
 {
     ddsrt_rbt_node_t *node = node_from_onode_nonnull(td, vnode);
-    (void) tree;
     
-    assert(path->pnode[path->depth]);
-    assert((*path->pnode[path->depth]) == NULL);
-    rb_link_node(node, path->parent, path->pnode[path->depth]);
+    assert(path->pnode);
+    assert((*path->pnode) == NULL);
+
+    rb_link_node(node, path->parent, path->pnode);
     rebalance_path(tree, node);
 }
 
@@ -713,9 +731,6 @@ void ddsrt_rbt_insert(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_tree_t *tree, voi
 
 void ddsrt_rbt_delete(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_tree_t *tree, void *vnode)
 {
-
-
-
 
     tree->count --;
 }

@@ -41,10 +41,8 @@ typedef struct ddsrt_rbt_tree {
 } ddsrt_rbt_tree_t;
 
 typedef struct ddsrt_rbt_path {
-    int depth;
-    int pnodeidx;
     ddsrt_rbt_node_t *parent;
-    ddsrt_rbt_node_t **pnode[DDSRT_RBT_MAX_TREEHEIGHT];
+    ddsrt_rbt_node_t **pnode;
 } ddsrt_rbt_path_t;
 
 typedef ddsrt_rbt_path_t ddsrt_rbt_ipath_t;

@@ -15,13 +15,15 @@ project(avl_rbt LANGUAGES C)
 
 
 set(CMAKE_C_STANDARD 11)
-# set(ENV{KernelSoftDDS_DIR} /home/dev/code/cyclonedds/install)
+set(ENV{KernelSoftDDS_DIR} /home/dev/code/cyclonedds/install)
 # set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};/home/dev/code/cyclonedds/install")
 
 set(CMAKE_BUILD_TYPE Debug)
 
+# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+
 # Find the KernelSoftDDS package.
-# find_package(KernelSoftDDS REQUIRED)
+find_package(KernelSoftDDS REQUIRED)
 
 # find_package(PkgConfig REQUIRED)
 
@@ -51,6 +53,11 @@ include_directories(${PROJECT_SOURCE_DIR})
 add_executable(avl_test avl_test.c avl.c)
 add_executable(rbt_test rbt_test.c rbtree.c)
 add_executable(rbtavl_test rbtavl_test.c rbtreeavl.c)
+# add_executable(test test.c rbtavl_test.c rbtreeavl.c)
+
+target_link_libraries(avl_test KernelSoftDDS::ddsc)
+target_link_libraries(rbtavl_test KernelSoftDDS::ddsc)
+target_link_libraries(rbt_test KernelSoftDDS::ddsc)
 
 # Both executables need to be linked to the idl data type library and
 # the ddsc API library.

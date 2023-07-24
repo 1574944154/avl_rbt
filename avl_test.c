@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stddef.h>
-
+#include <dds/dds.h>
 #include "avl.h"
 #include "rbtree.h"
 
@@ -9,6 +9,13 @@ struct domain
     ddsrt_avl_node_t node;
     int key;
 };
+
+#define MAX_SAMPLES 10000000
+
+int max(int a, int b)
+{
+    return a>b ? a:b;
+}
 
 int compare_int(const void *a, const void *b)
 {
@@ -31,25 +38,42 @@ void walk_func (void *node, void *arg)
     printf("access key is %d \n", d->key);
 }
 
+int height(ddsrt_avl_node_t *node)
+{
+    if(!node) return 0;
+    return max(height(node->cs[0]), height(node->cs[1])) + 1;
+}
 
+void *samples[MAX_SAMPLES];
 
 int main(int argc, char *argv[])
 {
     ddsrt_avl_ctree_t tree_root;
     ddsrt_avl_cinit(&domaintree_def, &tree_root);
 
-    void *samples[5];
-    
     struct domain *d_ptr;
 
+    printf("sizeof domain is %ld\n", sizeof(struct domain));
 
-    for(int i=0;i<=10000000;i++)
+    for(int i=0;i<MAX_SAMPLES;i++)
     {
-        d_ptr = malloc(sizeof(struct domain));
-        d_ptr->key = i;
-        ddsrt_avl_cinsert(&domaintree_def, &tree_root, d_ptr);
+        samples[i] = malloc(sizeof(struct domain));
+        ((struct domain *)samples[i])->key = i;
+        
         // printf("insert key %d, addr %lu\n", i, (unsigned long)d_ptr);
     }
+
+    dds_time_t starttime, endtime;
+    starttime = dds_time();
+
+    for(int i=0;i<MAX_SAMPLES;i++)
+    {
+        ddsrt_avl_cinsert(&domaintree_def, &tree_root, samples[i]);
+    }
+
+    endtime = dds_time();
+
+    printf("time is %ld\n", (endtime-starttime)/DDS_NSECS_IN_MSEC);
 
     // ddsrt_avl_cwalk(&domaintree_def, &tree_root, walk_func, NULL);
     // int l = 100, r = 110;
@@ -63,6 +87,8 @@ int main(int argc, char *argv[])
     // printf("\n");
     // intraverse(&domaintree_def.t, tree_root.t.root, walk_func);
     // printf("\n");
+
+    // printf("avl's height is %d\n", height(tree_root.t.root));
 
     return 0;
 }

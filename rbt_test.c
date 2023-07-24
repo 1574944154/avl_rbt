@@ -11,6 +11,11 @@ struct domain
     int key;
 };
 
+int max(int a, int b)
+{
+    return a>b ? a:b;
+}
+
 struct domain *my_search(struct rb_root *root, int key)
 {
     struct rb_node *node = root->rb_node;
@@ -57,23 +62,30 @@ void preorder(struct rb_node *node)
     preorder(node->cs[1]);
 }
 
+int height(struct rb_node *node)
+{
+    if(!node) return 0;
+    return max(height(node->cs[0]), height(node->cs[1])) + 1;
+}
+
 int main(int argc, char *argv[])
 {
     struct rb_root tree_root = RB_ROOT;
 
     struct domain *d_ptr = NULL;
 
-    void *samples[4];
+    printf("sizeof domain is %ld\n", sizeof(struct domain));
 
-    for(int i=0;i<=3;i++)
+    for(int i=0;i<=300000;i++)
     {
-        samples[i] = malloc(sizeof(struct domain));
-        ((struct domain *)samples[i])->key = i;
+        d_ptr = malloc(sizeof(struct domain));
+        d_ptr->key = i;
 
-        my_insert(&tree_root, samples[i]);
+        my_insert(&tree_root, d_ptr);
     }
 
-    rb_erase(samples[0], &tree_root);
+    printf("rbtree's height is %d\n", height(tree_root.rb_node));
+    // rb_erase(samples[0], &tree_root);
 
     return 0;
 }
