@@ -52,6 +52,7 @@ int my_insert(struct rb_root *root, struct domain *data)
 
     rb_link_node(&data->node, parent, new);
     rb_insert_color(&data->node, root);
+    
     return true;
 }
 
@@ -78,11 +79,13 @@ void *samples[MAX_SAMPLES];
 int main(int argc, char *argv[])
 {
     struct rb_root tree_root = RB_ROOT;
+    dds_time_t starttime, endtime, sumtime=0;
 
-    printf("sizeof domain is %ld\n", sizeof(struct domain));
+    printf("sizeof node is %ld\n", sizeof(struct domain));
 
     FILE *f = fopen(filename, "r");
     int num;
+    starttime = dds_time();
 
     for(int i=0;i<MAX_SAMPLES;i++)
     {
@@ -90,9 +93,13 @@ int main(int argc, char *argv[])
         fscanf(f, "%d ", &num);
         ((struct domain *)samples[i])->key = num;
     }
+    endtime = dds_time();
     fclose(f);
 
-    dds_time_t starttime, endtime;
+    printf("alloc %d time is %ld ms\n", MAX_SAMPLES, (endtime-starttime)/DDS_NSECS_IN_MSEC);
+
+    sumtime += endtime-starttime;
+
     starttime = dds_time();
 
     for(int i=0;i<MAX_SAMPLES;i++)
@@ -102,7 +109,41 @@ int main(int argc, char *argv[])
 
     endtime = dds_time();
 
-    printf("time is %ld\n", (endtime-starttime)/DDS_NSECS_IN_MSEC);
+    printf("insert all, time is %ld ms\n", (endtime-starttime)/DDS_NSECS_IN_MSEC);
+
+    sumtime += endtime-starttime;
+
+    struct rb_node *node;
+
+    starttime = dds_time();
+
+    for(int i=0;i<MAX_SAMPLES;i++)
+    {
+        samples[i] = my_search(&tree_root, i);
+        assert(samples[i] != NULL);
+    }
+
+    endtime = dds_time();
+
+    printf("lookup all, time is %ld ms\n", (endtime-starttime)/DDS_NSECS_IN_MSEC);
+
+    sumtime += endtime-starttime;
+
+    starttime = dds_time();
+
+    for(int i=0;i<MAX_SAMPLES;i++)
+    {
+        // ddsrt_rbt_delete(&treedef, &tree_root, &i);
+        rb_erase(samples[i], &tree_root);
+    }
+
+    endtime = dds_time();
+
+    sumtime += endtime-starttime;
+
+    printf("delete all, time is %ld ms\n", (endtime-starttime)/DDS_NSECS_IN_MSEC);
+
+    printf("all time is %ld ms\n", sumtime/DDS_NSECS_IN_MSEC);
 
     // printf("rbtree's height is %d\n", height(tree_root.rb_node));
     // rb_erase(samples[0], &tree_root);

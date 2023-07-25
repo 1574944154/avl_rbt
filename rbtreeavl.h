@@ -58,8 +58,9 @@ typedef struct ddsrt_rbt_iter {
 #define RB_RED                      0
 #define RB_BLACK                    1
 
-#define rb_parent(pc)            ((ddsrt_rbt_node_t*)((pc)->__rb_parent_color & ~3))
+#define rb_parent(node)            ((ddsrt_rbt_node_t*)((node)->__rb_parent_color & ~3))
 
+#define __rb_parent(pc)             ((ddsrt_rbt_node_t *)(pc & ~3));
 #define __rb_color(pc)              ((pc) & 1)
 #define __rb_is_black(pc)           __rb_color(pc)
 #define __rb_is_red(pc)             (!__rb_color(pc))
@@ -121,8 +122,6 @@ void *ddsrt_rbt_find_min(const ddsrt_rbt_treedef_t *td, const ddsrt_rbt_tree_t *
 void *ddsrt_rbt_find_max(const ddsrt_rbt_treedef_t *td, const ddsrt_rbt_tree_t *tree);
 void *ddsrt_rbt_find_pred(const ddsrt_rbt_treedef_t *td, const ddsrt_rbt_tree_t *tree, const void *vnode);
 void *ddsrt_rbt_find_succ(const ddsrt_rbt_treedef_t *td, const ddsrt_rbt_tree_t *tree, const void *vnode);
-
-
 
 void ddsrt_rbt_walk(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_tree_t *tree, ddsrt_rbt_walk_t f, void *a);
 void ddsrt_rbt_const_walk(const ddsrt_rbt_treedef_t *td, const ddsrt_rbt_tree_t *tree, ddsrt_rbt_const_walk_t f, void *a);

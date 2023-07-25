@@ -9,7 +9,7 @@ struct domain {
     int key;
 };
 
-#define MAX_SAMPLES 10000000
+#define MAX_SAMPLES 10
 
 int max(int a, int b)
 {
@@ -40,7 +40,7 @@ int height(ddsrt_rbt_node_t *node)
 
 ddsrt_rbt_treedef_t treedef = DDSRT_RBT_TREEDEF_INITIALIZER(offsetof(struct domain, node), offsetof(struct domain, key), compare_int, 0);
 
-char filename[] = "nums.txt";
+char filename[] = "/home/dev/code/cppProject/nums.txt";
 void *samples[MAX_SAMPLES];
 
 int main(int argc, char *argv[])
@@ -48,8 +48,14 @@ int main(int argc, char *argv[])
     ddsrt_rbt_tree_t tree_root;
     ddsrt_rbt_init(&treedef, &tree_root);
 
+    dds_time_t starttime, endtime, sumtime=0;
+
     FILE *f = fopen(filename, "r");
     int num;
+
+    printf("sizeof node is %ld\n", sizeof(struct domain));
+
+    starttime = dds_time();
 
     for(int i=0;i<MAX_SAMPLES;i++) 
     {
@@ -57,9 +63,15 @@ int main(int argc, char *argv[])
         fscanf(f, "%d ", &num);
         ((struct domain *)samples[i])->key = num;
     }
+
+    endtime = dds_time();
+
+    printf("alloc %d time is %ld ms\n", MAX_SAMPLES, (endtime-starttime)/DDS_NSECS_IN_MSEC);
+
     fclose(f);
 
-    dds_time_t starttime, endtime;
+    sumtime += endtime-starttime;
+
     starttime = dds_time();
 
     for(int i=0;i<MAX_SAMPLES;i++)
@@ -71,7 +83,40 @@ int main(int argc, char *argv[])
 
     endtime = dds_time();
 
-    printf("time is %ld\n", (endtime-starttime)/DDS_NSECS_IN_MSEC);
+    printf("insert all, time is %ld ms\n", (endtime-starttime)/DDS_NSECS_IN_MSEC);
+
+    sumtime += endtime-starttime;
+
+    ddsrt_rbt_node_t *node;
+
+    starttime = dds_time();
+
+    for(int i=0;i<MAX_SAMPLES;i++)
+    {
+        samples[i] = ddsrt_rbt_lookup(&treedef, &tree_root, &i);
+        // assert(samples[i] != NULL);
+    }
+
+    endtime = dds_time();
+
+    printf("lookup all, time is %ld ms\n", (endtime-starttime)/DDS_NSECS_IN_MSEC);
+
+    sumtime += endtime-starttime;
+
+    starttime = dds_time();
+
+    for(int i=0;i<MAX_SAMPLES;i++)
+    {
+        ddsrt_rbt_delete(&treedef, &tree_root, samples[MAX_SAMPLES-i-1]);
+    }
+
+    endtime = dds_time();
+
+    sumtime += endtime-starttime;
+
+    printf("delete all, time is %ld ms\n", (endtime-starttime)/DDS_NSECS_IN_MSEC);
+
+    printf("all time is %ld ms\n", sumtime/DDS_NSECS_IN_MSEC);
 
     // printf("rbtree's height is %d\n", height(tree_root.root));
 

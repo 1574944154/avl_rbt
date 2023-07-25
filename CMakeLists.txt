@@ -53,7 +53,7 @@ include_directories(${PROJECT_SOURCE_DIR})
 add_executable(avl_test avl_test.c avl.c)
 add_executable(rbt_test rbt_test.c rbtree.c)
 add_executable(rbtavl_test rbtavl_test.c rbtreeavl.c)
-# add_executable(test test.c rbtavl_test.c rbtreeavl.c)
+add_executable(test test.c avl.c)
 
 target_link_libraries(avl_test KernelSoftDDS::ddsc)
 target_link_libraries(rbtavl_test KernelSoftDDS::ddsc)

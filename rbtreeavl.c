@@ -140,6 +140,10 @@ void ddsrt_rbt_free_arg(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_tree_t *tree, v
     tree->root = NULL;
 }
 
+static void augment(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_node_t *n)
+{
+    td->augment(onode_from_node_nonnull(td, n), conode_from_node(td, n->cs[0]), conode_from_node(td, n->cs[1]));
+}
 
 void *ddsrt_rbt_root(const ddsrt_rbt_treedef_t *td, const ddsrt_rbt_tree_t *tree)
 {
@@ -573,18 +577,22 @@ void *ddsrt_rbt_iter_succ(const ddsrt_rbt_treedef_t *td, const ddsrt_rbt_tree_t 
     }
 }
 
-static inline void rb_link_node(ddsrt_rbt_node_t *node, ddsrt_rbt_node_t *parent, 
+static inline void rb_link_node(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_node_t *node, ddsrt_rbt_node_t *parent, 
                             ddsrt_rbt_node_t **rb_link)
 {
     node->__rb_parent_color = (unsigned long) parent;
     node->cs[0] = NULL;
     node->cs[1] = NULL;
+    if(td->augment)
+        augment(td, node);
     *rb_link = node;
 }
 
+// 
 static inline void __rb_change_child(ddsrt_rbt_node_t *old_node, ddsrt_rbt_node_t *new_node,
                 ddsrt_rbt_node_t *parent, ddsrt_rbt_tree_t *tree)
 {
+    // old_node 是否是根节点
     if(parent) {
         if(parent->cs[0] == old_node)
             parent->cs[0] = new_node;
@@ -609,7 +617,7 @@ static inline void __rb_change_color(ddsrt_rbt_node_t *tmp, ddsrt_rbt_node_t *no
 
 }
 
-static void rb_insert_color(ddsrt_rbt_node_t *node, ddsrt_rbt_tree_t *tree)
+static inline void rb_insert_color(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_node_t *node, ddsrt_rbt_tree_t *tree)
 {
     ddsrt_rbt_node_t *parent = rb_red_parent(node), *gparent, *tmp;
 
@@ -627,6 +635,19 @@ static void rb_insert_color(ddsrt_rbt_node_t *node, ddsrt_rbt_tree_t *tree)
         tmp = gparent->cs[1];
         if(parent != tmp) {
             if(tmp && rb_is_red(tmp)) {
+				/*
+				 * Case 1 - node's uncle is red (color flips).
+				 *
+				 *       G            g
+				 *      / \          / \
+				 *     p   u  -->   P   U
+				 *    /            /
+				 *   n            n
+				 *
+				 * However, since g's parent might be red, and
+				 * 4) does not allow this, we need to recurse
+				 * at g.
+				 */
                 rb_set_parent_color(tmp, gparent, RB_BLACK);
                 rb_set_parent_color(parent, gparent, RB_BLACK);
                 node = gparent;
@@ -637,23 +658,51 @@ static void rb_insert_color(ddsrt_rbt_node_t *node, ddsrt_rbt_tree_t *tree)
 
             tmp = parent->cs[1];
             if(node == tmp) {
-
+				/*
+				 * Case 2 - node's uncle is black and node is
+				 * the parent's right child (left rotate at parent).
+				 *
+				 *      G             G
+				 *     / \           / \
+				 *    p   U  -->    n   U
+				 *     \           /
+				 *      n         p
+				 *
+				 * This still leaves us in violation of 4), the
+				 * continuation into Case 3 will fix that.
+				 */
                 tmp = node->cs[0];
                 parent->cs[1] = tmp;
                 node->cs[0] = parent;
                 if(tmp)
                     rb_set_parent_color(tmp, parent, RB_BLACK);
                 rb_set_parent_color(parent, node, RB_RED);
-
+                if(td->augment) {
+                    augment(td, parent);
+                    augment(td, node);
+                }
                 parent = node;
                 tmp = node->cs[1];
             }
-
+			/*
+			 * Case 3 - node's uncle is black and node is
+			 * the parent's left child (right rotate at gparent).
+			 *
+			 *        G           P
+			 *       / \         / \
+			 *      p   U  -->  n   g
+			 *     /                 \
+			 *    n                   U
+			 */
             gparent->cs[0] = tmp;
             parent->cs[1] = gparent;
             if(tmp)
                 rb_set_parent_color(tmp, gparent, RB_BLACK);
             __rb_rotate_set_parents(gparent, parent, tree, RB_RED);
+            if(td->augment) {
+                augment(td, gparent);
+                augment(td, parent);
+            }
             break;
         } else {
             tmp = gparent->cs[0];
@@ -663,7 +712,6 @@ static void rb_insert_color(ddsrt_rbt_node_t *node, ddsrt_rbt_tree_t *tree)
                 node = gparent;
                 parent = rb_parent(node);
                 rb_set_parent_color(node, parent, RB_RED);
-                
                 continue;
             }
 
@@ -675,6 +723,11 @@ static void rb_insert_color(ddsrt_rbt_node_t *node, ddsrt_rbt_tree_t *tree)
                 if(tmp)
                     rb_set_parent_color(tmp, parent, RB_BLACK);
                 rb_set_parent_color(parent, node, RB_RED);
+
+                if(td->augment) {
+                    augment(td, gparent);
+                    augment(td, parent);
+                }
                 parent = node;
                 tmp = node->cs[0];
             }
@@ -684,14 +737,18 @@ static void rb_insert_color(ddsrt_rbt_node_t *node, ddsrt_rbt_tree_t *tree)
             if(tmp)
                 rb_set_parent_color(tmp, gparent, RB_BLACK);
             __rb_rotate_set_parents(gparent, parent, tree, RB_RED);
+            if(td->augment) {
+                augment(td, gparent);
+                augment(td, parent);
+            }
             break;
         }
     }
 }
 
-static inline void rebalance_path(ddsrt_rbt_tree_t *tree, ddsrt_rbt_node_t *node)
+static void rebalance_path(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_tree_t *tree, ddsrt_rbt_node_t *node)
 {
-    rb_insert_color(node, tree);
+    rb_insert_color(td, node, tree);
 }
 
 void ddsrt_rbt_insert_ipath(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_tree_t *tree, void *vnode, ddsrt_rbt_ipath_t *path)
@@ -701,13 +758,8 @@ void ddsrt_rbt_insert_ipath(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_tree_t *tre
     assert(path->pnode);
     assert((*path->pnode) == NULL);
 
-    rb_link_node(node, path->parent, path->pnode);
-    rebalance_path(tree, node);
-}
-
-void ddsrt_rbt_delete_dpath(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_tree_t *tree, void *node, ddsrt_rbt_dpath_t *path)
-{
-
+    rb_link_node(td, node, path->parent, path->pnode);
+    rebalance_path(td, tree, node);
 }
 
 void ddsrt_rbt_insert(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_tree_t *tree, void *vnode)
@@ -725,8 +777,284 @@ void ddsrt_rbt_insert(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_tree_t *tree, voi
     tree->count ++;
 }
 
+static inline ddsrt_rbt_node_t *__rb_erase(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_node_t *node, ddsrt_rbt_tree_t *tree)
+{
+    ddsrt_rbt_node_t *child = node->cs[1];
+    ddsrt_rbt_node_t *tmp = node->cs[0];
+    ddsrt_rbt_node_t *parent, *rebalance;
+    unsigned long pc;
+
+    if(!tmp) {   // tmp == NULL
+
+        pc = node->__rb_parent_color;
+        parent = __rb_parent(pc);
+
+        __rb_change_child(node, child, parent, tree);
+        if(child) {
+            child->__rb_parent_color = pc;
+            rebalance = NULL;
+        } else {
+            rebalance = __rb_is_black(pc) ? parent : NULL;
+        }
+        tmp = parent;
+    } else if (!child) {  // child == NULL
+        tmp->__rb_parent_color = pc = node->__rb_parent_color;
+        parent = __rb_parent(pc);
+        __rb_change_child(node, tmp, parent, tree);
+        rebalance = NULL;
+        tmp = parent;
+    } else {
+        ddsrt_rbt_node_t *successor = child, *child2;
+
+        tmp = child->cs[0];
+        if(!tmp) {
+			/*
+			 * Case 2: node's successor is its right child
+			 *
+			 *    (n)          (s)
+			 *    / \          / \
+			 *  (x) (s)  ->  (x) (c)
+			 *        \
+			 *        (c)
+			 */
+            parent = successor;
+            child2 = successor->cs[1];
+            
+            if(td->augment)
+                augment(td, successor);
+        } else {
+			/*
+			 * Case 3: node's successor is leftmost under
+			 * node's right child subtree
+			 *
+			 *    (n)          (s)
+			 *    / \          / \
+			 *  (x) (y)  ->  (x) (y)
+			 *      /            /
+			 *    (p)          (p)
+			 *    /            /
+			 *  (s)          (c)
+			 *    \
+			 *    (c)
+			 */
+            do {
+                parent = successor;
+                successor = tmp;
+                tmp = tmp->cs[0];
+            } while(tmp);
+            child2 = successor->cs[1];
+            parent->cs[0] = child2;
+            successor->cs[1] = child;
+            rb_set_parent(child, successor);
+            if(td->augment) {
+                augment(td, parent);
+                augment(td, successor);
+            }
+        }
+
+        tmp = node->cs[0];
+        successor->cs[0] = tmp;
+        rb_set_parent(tmp, successor);
+
+        pc = node->__rb_parent_color;
+        tmp = __rb_parent(pc);
+        __rb_change_child(node, successor, tmp, tree);
+
+        if(child2) {
+            rb_set_parent_color(child2, parent, RB_BLACK);
+            rebalance = NULL;
+        } else {
+            rebalance = rb_is_black(successor) ? parent : NULL;
+        }
+        successor->__rb_parent_color = pc;
+        tmp = successor;
+    }
+
+    if(td->augment)
+        augment(td, tmp);
+
+    return rebalance;
+}
+
+void __rb_erase_color(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_node_t *parent, ddsrt_rbt_tree_t *tree)
+{
+    ddsrt_rbt_node_t *node = NULL, *sibling, *tmp1, *tmp2;
+
+    for(;;) {
+		/*
+		 * Loop invariants:
+		 * - node is black (or NULL on first iteration)
+		 * - node is not the root (parent is not NULL)
+		 * - All leaf paths going through parent and node have a
+		 *   black node count that is 1 lower than other leaf paths.
+		 */
+        sibling = parent->cs[1];
+        if(node != sibling) {  /* node == parent->cs[0] */
+            if(rb_is_red(sibling)) {
+				/*
+				 * Case 1 - left rotate at parent
+				 *
+				 *     P               S
+				 *    / \             / \
+				 *   N   s    -->    p   Sr
+				 *      / \         / \
+				 *     Sl  Sr      N   Sl
+				 */
+                tmp1 = sibling->cs[0];
+                parent->cs[1] = tmp1;
+                sibling->cs[0] = parent;
+                rb_set_parent_color(tmp1, parent, RB_BLACK);
+                __rb_rotate_set_parents(parent, sibling, tree, RB_RED);
+                if(td->augment) {
+                    augment(td, parent);
+                    augment(td, sibling);
+                }
+                sibling = tmp1;
+            }
+            tmp1 = sibling->cs[1];
+            if(!tmp1 || rb_is_black(tmp1)) {
+                tmp2 = sibling->cs[0];
+                if(!tmp2 || rb_is_black(tmp2)) {
+					/*
+					 * Case 2 - sibling color flip
+					 * (p could be either color here)
+					 *
+					 *    (p)           (p)
+					 *    / \           / \
+					 *   N   S    -->  N   s
+					 *      / \           / \
+					 *     Sl  Sr        Sl  Sr
+					 *
+					 * This leaves us violating 5) which
+					 * can be fixed by flipping p to black
+					 * if it was red, or by recursing at p.
+					 * p is red when coming from Case 1.
+					 */
+                    rb_set_parent_color(sibling, parent, RB_RED);
+                    if(rb_is_red(parent))
+                        rb_set_black(parent);
+                    else {
+                        node = parent;
+                        parent = rb_parent(node);
+                        if(parent)
+                            continue;
+                    }
+                    break;
+                }
+				/*
+				 * Case 3 - right rotate at sibling
+				 * (p could be either color here)
+				 *
+				 *   (p)           (p)
+				 *   / \           / \
+				 *  N   S    -->  N   sl
+				 *     / \             \
+				 *    sl  Sr            S
+				 *                       \
+				 *                        Sr
+				 *
+				 * Note: p might be red, and then both
+				 * p and sl are red after rotation(which
+				 * breaks property 4). This is fixed in
+				 * Case 4 (in __rb_rotate_set_parents()
+				 *         which set sl the color of p
+				 *         and set p RB_BLACK)
+				 *
+				 *   (p)            (sl)
+				 *   / \            /  \
+				 *  N   sl   -->   P    S
+				 *       \        /      \
+				 *        S      N        Sr
+				 *         \
+				 *          Sr
+				 */
+                tmp1 = tmp2->cs[1];
+                sibling->cs[0] = tmp1;
+                tmp2->cs[1] = sibling;
+                parent->cs[1] = tmp2;
+                if(tmp1)
+                    rb_set_parent_color(tmp1, sibling, RB_BLACK);
+                if(td->augment) {
+
+                }
+                tmp1 = sibling;
+                sibling = tmp2;
+            }
+			/*
+			 * Case 4 - left rotate at parent + color flips
+			 * (p and sl could be either color here.
+			 *  After rotation, p becomes black, s acquires
+			 *  p's color, and sl keeps its color)
+			 *
+			 *      (p)             (s)
+			 *      / \             / \
+			 *     N   S     -->   P   Sr
+			 *        / \         / \
+			 *      (sl) sr      N  (sl)
+			 */
+            tmp2 = sibling->cs[0];
+            parent->cs[1] = tmp2;
+            sibling->cs[0] = parent;
+            rb_set_parent_color(tmp1, sibling, RB_BLACK);
+            if(tmp2)
+                rb_set_parent(tmp2, parent);
+            __rb_rotate_set_parents(parent, sibling, tree, RB_BLACK);
+            break;
+        } else {
+            sibling = parent->cs[0];
+            if(rb_is_red(sibling)) {
+                tmp1 = sibling->cs[1];
+                parent->cs[0] = tmp1;
+                sibling->cs[1] = parent;
+                rb_set_parent_color(tmp1, parent, RB_BLACK);
+                __rb_rotate_set_parents(parent, sibling, tree, RB_RED);
+                sibling = tmp1;
+            }
+            tmp1 = sibling->cs[0];
+            if(!tmp1 || rb_is_black(tmp2)) {
+                tmp2 = sibling->cs[1];
+                if(!tmp2 || rb_is_black(tmp2)) {
+                    rb_set_parent_color(sibling, parent, RB_RED);
+                    if(rb_is_red(parent))
+                        rb_set_black(parent);
+                    else {
+                        node = parent;
+                        parent = rb_parent(node);
+                        if(parent)
+                            continue;
+                    }
+                    break;
+                }
+                tmp1 = tmp2->cs[0];
+                sibling->cs[1] = tmp1;
+                tmp2->cs[0] = sibling;
+                parent->cs[0] = tmp2;
+                if(tmp1) 
+                    rb_set_parent_color(tmp1, sibling, RB_BLACK);
+                tmp1 = sibling;
+                sibling = tmp2;
+            }
+            tmp2 = sibling->cs[1];
+            parent->cs[0] = tmp2;
+            sibling->cs[1] = parent;
+            rb_set_parent_color(tmp1, sibling, RB_BLACK);
+            if(tmp2)
+                rb_set_parent(tmp2, parent);
+
+            __rb_rotate_set_parents(parent, sibling, tree, RB_BLACK);
+            break;
+        }
+    }
+}
+
 void ddsrt_rbt_delete(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_tree_t *tree, void *vnode)
 {
+    assert(tree->count > 0);
+    ddsrt_rbt_node_t *node = node_from_onode_nonnull(td, vnode);
+
+    ddsrt_rbt_node_t *rebalance = __rb_erase(td, node, tree);
+    if(rebalance)
+        __rb_erase_color(td, rebalance, tree);
 
     tree->count --;
 }
