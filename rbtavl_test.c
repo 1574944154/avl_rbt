@@ -9,7 +9,7 @@ struct domain {
     int key;
 };
 
-#define MAX_SAMPLES 10
+#define MAX_SAMPLES 10000000
 
 int max(int a, int b)
 {
@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
     for(int i=0;i<MAX_SAMPLES;i++)
     {
         samples[i] = ddsrt_rbt_lookup(&treedef, &tree_root, &i);
-        // assert(samples[i] != NULL);
+        assert(samples[i] != NULL);
     }
 
     endtime = dds_time();

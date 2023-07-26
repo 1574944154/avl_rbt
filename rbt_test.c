@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
     for(int i=0;i<MAX_SAMPLES;i++)
     {
         // ddsrt_rbt_delete(&treedef, &tree_root, &i);
-        rb_erase(samples[i], &tree_root);
+        rb_erase(samples[MAX_SAMPLES-i-1], &tree_root);
     }
 
     endtime = dds_time();

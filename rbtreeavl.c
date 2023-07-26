@@ -145,6 +145,14 @@ static void augment(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_node_t *n)
     td->augment(onode_from_node_nonnull(td, n), conode_from_node(td, n->cs[0]), conode_from_node(td, n->cs[1]));
 }
 
+static void augment_propagate(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_node_t *node, ddsrt_rbt_node_t *stop)
+{
+    while(node != stop) {
+        augment(td, node);
+        node = rb_parent(node);
+    }
+}
+
 void *ddsrt_rbt_root(const ddsrt_rbt_treedef_t *td, const ddsrt_rbt_tree_t *tree)
 {
     return (void *) onode_from_node(td, tree->root);
@@ -784,20 +792,35 @@ static inline ddsrt_rbt_node_t *__rb_erase(const ddsrt_rbt_treedef_t *td, ddsrt_
     ddsrt_rbt_node_t *parent, *rebalance;
     unsigned long pc;
 
-    if(!tmp) {   // tmp == NULL
-
+    if(!tmp) {   // 被删除节点的左子树为空
+		/*
+		 * Case 1: node to erase has no more than 1 child (easy!)
+		 * Note that if there is one child it must be red due to 5)
+		 * and node must be black due to 4). We adjust colors locally
+		 * so as to bypass __rb_erase_color() later on.
+		 */
         pc = node->__rb_parent_color;
         parent = __rb_parent(pc);
 
         __rb_change_child(node, child, parent, tree);
         if(child) {
+        /*
+         *          (n)(black)              (child)(red)
+         *          / \             =>       /  \
+         *        nil child(red)           nil  nil
+         */
             child->__rb_parent_color = pc;
             rebalance = NULL;
         } else {
-            rebalance = __rb_is_black(pc) ? parent : NULL;
+		/*   only n
+         *
+         *          (n)
+		 */
+            rebalance = __rb_is_black(pc) ? parent : NULL;   // n是红色或者 n是黑色且n为根节点
         }
         tmp = parent;
     } else if (!child) {  // child == NULL
+        /* Still case 1, but this time the child is node->cs[0] */
         tmp->__rb_parent_color = pc = node->__rb_parent_color;
         parent = __rb_parent(pc);
         __rb_change_child(node, tmp, parent, tree);
@@ -807,21 +830,19 @@ static inline ddsrt_rbt_node_t *__rb_erase(const ddsrt_rbt_treedef_t *td, ddsrt_
         ddsrt_rbt_node_t *successor = child, *child2;
 
         tmp = child->cs[0];
-        if(!tmp) {
+        if(!tmp) {   
 			/*
 			 * Case 2: node's successor is its right child
 			 *
 			 *    (n)          (s)
 			 *    / \          / \
 			 *  (x) (s)  ->  (x) (c)
-			 *        \
-			 *        (c)
+			 *      / \
+			 *    nil (c)
 			 */
             parent = successor;
             child2 = successor->cs[1];
             
-            if(td->augment)
-                augment(td, successor);
         } else {
 			/*
 			 * Case 3: node's successor is leftmost under
@@ -846,10 +867,8 @@ static inline ddsrt_rbt_node_t *__rb_erase(const ddsrt_rbt_treedef_t *td, ddsrt_
             parent->cs[0] = child2;
             successor->cs[1] = child;
             rb_set_parent(child, successor);
-            if(td->augment) {
-                augment(td, parent);
-                augment(td, successor);
-            }
+
+            augment_propagate(td, parent, successor);
         }
 
         tmp = node->cs[0];
@@ -870,7 +889,7 @@ static inline ddsrt_rbt_node_t *__rb_erase(const ddsrt_rbt_treedef_t *td, ddsrt_
         tmp = successor;
     }
 
-    if(td->augment)
+    if(td->augment && tmp)
         augment(td, tmp);
 
     return rebalance;
@@ -905,10 +924,6 @@ void __rb_erase_color(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_node_t *parent, d
                 sibling->cs[0] = parent;
                 rb_set_parent_color(tmp1, parent, RB_BLACK);
                 __rb_rotate_set_parents(parent, sibling, tree, RB_RED);
-                if(td->augment) {
-                    augment(td, parent);
-                    augment(td, sibling);
-                }
                 sibling = tmp1;
             }
             tmp1 = sibling->cs[1];
@@ -974,9 +989,6 @@ void __rb_erase_color(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_node_t *parent, d
                 parent->cs[1] = tmp2;
                 if(tmp1)
                     rb_set_parent_color(tmp1, sibling, RB_BLACK);
-                if(td->augment) {
-
-                }
                 tmp1 = sibling;
                 sibling = tmp2;
             }
@@ -1040,7 +1052,6 @@ void __rb_erase_color(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_node_t *parent, d
             rb_set_parent_color(tmp1, sibling, RB_BLACK);
             if(tmp2)
                 rb_set_parent(tmp2, parent);
-
             __rb_rotate_set_parents(parent, sibling, tree, RB_BLACK);
             break;
         }

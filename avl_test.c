@@ -106,12 +106,11 @@ int main(int argc, char *argv[])
 
     printf("lookup all, time is %ld ms\n", (endtime-starttime)/DDS_NSECS_IN_MSEC);
 
-
     starttime = dds_time();
 
     for(int i=0;i<MAX_SAMPLES;i++)
     {
-        ddsrt_avl_cdelete(&domaintree_def, &tree_root, samples[i]);
+        ddsrt_avl_cdelete(&domaintree_def, &tree_root, samples[MAX_SAMPLES-i-1]);
     }
 
     endtime = dds_time();
@@ -119,7 +118,6 @@ int main(int argc, char *argv[])
     sumtime += endtime-starttime;
 
     printf("delete all, time is %ld ms\n", (endtime-starttime)/DDS_NSECS_IN_MSEC);
-
 
     printf("all time is %ld ms\n", sumtime/DDS_NSECS_IN_MSEC);
     // ddsrt_avl_cwalk(&domaintree_def, &tree_root, walk_func, NULL);
