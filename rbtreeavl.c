@@ -1011,7 +1011,7 @@ void __rb_erase_color(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_node_t *parent, d
                 sibling = tmp1;
             }
             tmp1 = sibling->cs[0];
-            if(!tmp1 || rb_is_black(tmp2)) {
+            if(!tmp1 || rb_is_black(tmp1)) {
                 tmp2 = sibling->cs[1];
                 if(!tmp2 || rb_is_black(tmp2)) {
                     rb_set_parent_color(sibling, parent, RB_RED);
