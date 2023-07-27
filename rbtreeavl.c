@@ -733,8 +733,8 @@ static inline void rb_insert_color(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_node
                 rb_set_parent_color(parent, node, RB_RED);
 
                 if(td->augment) {
-                    augment(td, gparent);
                     augment(td, parent);
+                    augment(td, node);
                 }
                 parent = node;
                 tmp = node->cs[0];
@@ -842,7 +842,8 @@ static inline ddsrt_rbt_node_t *__rb_erase(const ddsrt_rbt_treedef_t *td, ddsrt_
 			 */
             parent = successor;
             child2 = successor->cs[1];
-            
+            if(td->augment)
+                augment(td, successor);
         } else {
 			/*
 			 * Case 3: node's successor is leftmost under
@@ -867,8 +868,10 @@ static inline ddsrt_rbt_node_t *__rb_erase(const ddsrt_rbt_treedef_t *td, ddsrt_
             parent->cs[0] = child2;
             successor->cs[1] = child;
             rb_set_parent(child, successor);
-
-            augment_propagate(td, parent, successor);
+            if(td->augment) {
+                augment(td, successor);
+                augment_propagate(td, parent, successor);
+            }
         }
 
         tmp = node->cs[0];
@@ -890,7 +893,7 @@ static inline ddsrt_rbt_node_t *__rb_erase(const ddsrt_rbt_treedef_t *td, ddsrt_
     }
 
     if(td->augment && tmp)
-        augment(td, tmp);
+        augment_propagate(td, tmp, NULL);
 
     return rebalance;
 }
@@ -924,6 +927,10 @@ void __rb_erase_color(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_node_t *parent, d
                 sibling->cs[0] = parent;
                 rb_set_parent_color(tmp1, parent, RB_BLACK);
                 __rb_rotate_set_parents(parent, sibling, tree, RB_RED);
+                if(td->augment) {
+                    augment(td, parent);
+                    augment(td, sibling);
+                }
                 sibling = tmp1;
             }
             tmp1 = sibling->cs[1];
@@ -989,6 +996,10 @@ void __rb_erase_color(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_node_t *parent, d
                 parent->cs[1] = tmp2;
                 if(tmp1)
                     rb_set_parent_color(tmp1, sibling, RB_BLACK);
+                if(td->augment) {
+                    augment(td, sibling);
+                    augment(td, tmp2);
+                }
                 tmp1 = sibling;
                 sibling = tmp2;
             }
@@ -1011,6 +1022,10 @@ void __rb_erase_color(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_node_t *parent, d
             if(tmp2)
                 rb_set_parent(tmp2, parent);
             __rb_rotate_set_parents(parent, sibling, tree, RB_BLACK);
+            if(td->augment) {
+                augment(td, parent);
+                augment(td, sibling);
+            }
             break;
         } else {
             sibling = parent->cs[0];
@@ -1020,6 +1035,10 @@ void __rb_erase_color(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_node_t *parent, d
                 sibling->cs[1] = parent;
                 rb_set_parent_color(tmp1, parent, RB_BLACK);
                 __rb_rotate_set_parents(parent, sibling, tree, RB_RED);
+                if(td->augment) {
+                    augment(td, parent);
+                    augment(td, sibling);
+                }
                 sibling = tmp1;
             }
             tmp1 = sibling->cs[0];
@@ -1043,6 +1062,10 @@ void __rb_erase_color(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_node_t *parent, d
                 parent->cs[0] = tmp2;
                 if(tmp1) 
                     rb_set_parent_color(tmp1, sibling, RB_BLACK);
+                if(td->augment) {
+                    augment(td, sibling);
+                    augment(td, tmp2);
+                }
                 tmp1 = sibling;
                 sibling = tmp2;
             }
@@ -1053,6 +1076,10 @@ void __rb_erase_color(const ddsrt_rbt_treedef_t *td, ddsrt_rbt_node_t *parent, d
             if(tmp2)
                 rb_set_parent(tmp2, parent);
             __rb_rotate_set_parents(parent, sibling, tree, RB_BLACK);
+            if(td->augment) {
+                augment(td, parent);
+                augment(td, sibling);
+            }
             break;
         }
     }
